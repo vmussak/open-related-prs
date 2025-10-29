@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
+const TEAMS_WEBHOOK_URL = process.env.TEAMS_WEBHOOK_URL;
 const ORG = process.env.GITHUB_ORG;
 
 // List of users to check (comma-separated in .env)
@@ -155,6 +156,75 @@ async function sendToSlack(prsNeedingAttention) {
     }
 }
 
+async function sendToTeams(prsNeedingAttention) {
+    if (!TEAMS_WEBHOOK_URL) {
+        console.log("⚠️  TEAMS_WEBHOOK_URL not set. Skipping Teams notification.");
+        return;
+    }
+
+    // Build Teams message card
+    let sections = [];
+    
+    if (prsNeedingAttention.length === 0) {
+        sections.push({
+            "activityTitle": "✅ All PRs are approved and ready to merge!",
+            "activitySubtitle": "No action needed"
+        });
+    } else {
+        prsNeedingAttention.forEach(pr => {
+            const statusEmoji = pr.approvals < 2 ? "❌" : "⚠️";
+            const statusText = pr.approvals < 2 
+                ? `${pr.approvals}/2 approvals` 
+                : `${pr.approvals} approvals but BLOCKED`;
+
+            sections.push({
+                "activityTitle": `${statusEmoji} ${statusText}`,
+                "activitySubtitle": pr.title,
+                "facts": [
+                    { "name": "Repository:", "value": pr.repo },
+                    { "name": "Author:", "value": pr.author },
+                    { "name": "Approvals:", "value": pr.approvals.toString() }
+                ],
+                "potentialAction": [
+                    {
+                        "@type": "OpenUri",
+                        "name": "View PR",
+                        "targets": [
+                            { "os": "default", "uri": pr.url }
+                        ]
+                    }
+                ]
+            });
+        });
+    }
+
+    const message = {
+        "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
+        "summary": `PRs Needing Attention (${prsNeedingAttention.length})`,
+        "themeColor": prsNeedingAttention.length === 0 ? "28a745" : "dc3545",
+        "title": `📋 PRs Needing Attention (${prsNeedingAttention.length})`,
+        "sections": sections
+    };
+
+    // Send to Teams
+    try {
+        const response = await fetch(TEAMS_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message)
+        });
+
+        if (response.ok) {
+            console.log("\n✅ Teams notification sent successfully!");
+        } else {
+            console.error("❌ Failed to send Teams notification:", response.statusText);
+        }
+    } catch (err) {
+        console.error("❌ Error sending Teams notification:", err.message);
+    }
+}
+
 async function checkPRs() {
     console.log(`🔍 Checking open PRs for users in ${ORG}...\n`);
 
@@ -220,6 +290,9 @@ async function checkPRs() {
 
     // Send to Slack
     await sendToSlack(prsNeedingAttention);
+    
+    // Send to Teams
+    await sendToTeams(prsNeedingAttention);
 }
 
 // Run the check
