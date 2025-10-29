@@ -2,8 +2,8 @@ name: Check PRs Twice Daily
 
 on:
   schedule:
-    # Run at 9 AM and 5 PM UTC (adjust timezone as needed)
-    - cron: '0 9,17 * * *'
+    # Run at 9 AM and 4 PM BRT (12 PM and 7 PM UTC)
+    - cron: '0 12,19 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
