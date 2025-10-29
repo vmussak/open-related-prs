@@ -26,4 +26,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        GITHUB_ORG: ${{ secrets.GH_ORG }}
+        PR_CHECK_USERS: ${{ secrets.PR_CHECK_USERS }}
       run: node check-prs.js
